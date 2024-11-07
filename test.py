@@ -1,3 +1,4 @@
+
 import cv2
 import numpy as np
 import os
@@ -174,6 +175,131 @@ def parseArgs():
     parser.add_argument("--algo", "-a", default="ap", type=algorithm)
     return parser.parse_args()
 
+
+
+import numpy as np
+import queue
+
+# Constants for source and sink
+SOURCE = -2
+SINK = -1
+
+# BFS for level graph
+def bfs_level_graph(rGraph, V, s, t, level):
+    q = queue.Queue()
+    visited = np.zeros(V, dtype=bool)
+    q.put(s)
+    level[s] = 0
+    visited[s] = True
+
+    while not q.empty():
+        u = q.get()
+        for v in range(V):
+            if not visited[v] and rGraph[u][v] > 0:
+                level[v] = level[u] + 1
+                visited[v] = True
+                q.put(v)
+    
+    return visited[t]
+
+# DFS to send flow through level graph
+def dfs_flow(rGraph, level, u, flow, t, start):
+    if u == t:
+        return flow
+    while start[u] < len(rGraph):
+        v = start[u]
+        if level[v] == level[u] + 1 and rGraph[u][v] > 0:
+            current_flow = min(flow, rGraph[u][v])
+            temp_flow = dfs_flow(rGraph, level, v, current_flow, t, start)
+            if temp_flow > 0:
+                rGraph[u][v] -= temp_flow
+                rGraph[v][u] += temp_flow
+                return temp_flow
+        start[u] += 1
+    return 0
+
+# Dinic's algorithm
+def dinic_max_flow(graph, s, t):
+    V = len(graph)
+    rGraph = graph.copy()
+    max_flow = 0
+    level = np.full(V, -1, dtype=int)
+    
+    while bfs_level_graph(rGraph, V, s, t, level):
+        start = np.zeros(V, dtype=int)
+        flow = 0
+        
+        while True:
+            current_flow = dfs_flow(rGraph, level, s, float("inf"), t, start)
+            if current_flow == 0:
+                break
+            flow += current_flow
+        
+        max_flow += flow
+
+    return max_flow, rGraph  # Return residual graph for cut extraction
+
+# Extract the cut points from the residual graph
+def extract_cut_points(graph, rGraph, source):
+    V = len(graph)
+    visited = np.zeros(V, dtype=bool)
+
+    # Perform a DFS or BFS to find all nodes reachable from the source in the residual graph
+    def dfs(u):
+        visited[u] = True
+        for v in range(V):
+            if rGraph[u][v] > 0 and not visited[v]:
+                dfs(v)
+
+    dfs(source)
+
+    # Now, find the cut edges (edges between visited and unvisited nodes with non-zero capacity)
+    cut_edges = []
+    for u in range(V):
+        if visited[u]:
+            for v in range(V):
+                if not visited[v] and graph[u][v] > 0:  # Residual capacity > 0
+                    cut_edges.append((u, v))
+
+    return cut_edges
+
+# Function to perform image segmentation using Dinic's algorithm
+def image_segmentation_dinic(image, seeds, graph):
+    # Construct the graph, T-links and N-links
+    V = image.size + 2  # Number of vertices (including source and sink)
+    graph = np.zeros((V, V), dtype='int32')
+
+    # Set T-links based on the seeded image
+    makeTLinks(graph, seeds)
+    
+    # Set N-links based on boundary penalties
+    K = makeNLinks(graph, image)
+
+    # Add source and sink capacities for the object and background seeds
+    source = SOURCE
+    sink = SINK
+
+    # Run Dinic's max-flow algorithm
+    max_flow, residual_graph = dinic_max_flow(graph, source, sink)
+
+    # Extract cut points
+    cut_edges = extract_cut_points(graph, residual_graph, source)
+
+    # Return the cut edges (the segmentation boundary)
+    return cut_edges
+
+# Example usage
 if __name__ == "__main__":
     args = parseArgs()
-    imageSegmentation(args.imagefile, (args.size, args.size), args.algo)
+    # Assuming `image` and `seeds` are prepared earlier
+    image = args.imagefile
+    seeds , i = plantSeed(image)
+    V = image.size + 2 
+    graph = np.zeros((V, V), dtype=int)
+    
+    # Assuming you've created a graph, use Dinic's algorithm
+    cut_edges = image_segmentation_dinic(image, seeds, graph)
+    
+    print("Cut points (edges):")
+    for u, v in cut_edges:
+        print(f"Edge from {u} to {v}")
