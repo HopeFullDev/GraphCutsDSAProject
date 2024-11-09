@@ -8,4 +8,5 @@
   
 ## Run Time
  - ```  source myenv/bin/activate ```
- - ```  python3 graphcut.py ./images/pexels-jvdm-1526404.jpg -a ap -s 30 ```
+ - ```  python3 graphcut.py ./images/pexels-jvdm-1526404.jpg -a ap -s 30```
+ - ``` python3 ./graphcut.py  ./images/pexels-markb-106685.jpg -a ap,pr,bk,dn```
