@@ -6,11 +6,13 @@ from math import exp, pow
 from augmentingPath import augmentingPath
 from pushRelabel import pushRelabel
 from boykovKolmogorov import boykovKolmogorov
+from dinics import dinic_algorithm
 
 # np.set_printoptions(threshold=np.inf)
 graphCutAlgo = {"ap": augmentingPath, 
                 "pr": pushRelabel, 
-                "bk": boykovKolmogorov}
+                "bk": boykovKolmogorov ,
+                "dn": dinic_algorithm}
 SIGMA = 30
 # LAMBDA = 1
 OBJCOLOR, BKGCOLOR = (0, 0, 255), (0, 255, 0)
